@@ -1,17 +1,27 @@
 import express from "express";
+import cors from "cors";
 import pkg from "pg";
-const { Pool } = pkg;
+import dotenv from "dotenv";
+dotenv.config();
 
+const { Pool } = pkg;
 const app = express();
+
+app.use(cors());
 app.use(express.json());
 
-// Configuração da conexão com o Supabase (Transaction Pooler)
+// 🌐 Rota inicial (para testar no navegador)
+app.get("/", (req, res) => {
+  res.send("🚀 API da EmilyLoja está online e conectada ao Supabase!");
+});
+
+// 🔗 Conexão com o Supabase (Transaction Pooler)
 const pool = new Pool({
-  host: "aws-1-sa-east-1.pooler.supabase.com",
-  port: 6543,
-  database: "postgres",
-  user: "postgres.uidxcmctxdtcaaecdyrg",
-  password: "SENHA_AQUI", // substitua pela senha real do Supabase
+  host: process.env.DB_HOST || "aws-1-sa-east-1.pooler.supabase.com",
+  port: process.env.DB_PORT || 6543,
+  database: process.env.DB_NAME || "postgres",
+  user: process.env.DB_USER || "postgres.uidxcmctxdtcaaecdyrg",
+  password: process.env.DB_PASS || "SENHA_AQUI", // Substitua localmente
   ssl: { rejectUnauthorized: false },
 });
 
@@ -42,4 +52,6 @@ app.get("/testar-insert", async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log("🚀 Servidor rodando em http://localhost:3000"));
+// 🚀 Inicialização
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
