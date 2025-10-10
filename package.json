@@ -1,0 +1,32 @@
+{
+  "name": "emilyloja-backend",
+  "version": "1.0.0",
+  "description": "Backend do projeto EmilyLoja - API com Express e PostgreSQL (Supabase)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "express",
+    "backend",
+    "api",
+    "emilyloja"
+  ],
+  "author": "Schneider Jean",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jean04-hue/emilyloja-backend.git"
+  }
+}
