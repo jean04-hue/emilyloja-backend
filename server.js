@@ -1,4 +1,4 @@
-// server.js
+ansyen server.js: // 📁 server.js
 import express from "express";
 import cors from "cors";
 import pkg from "pg";
@@ -7,130 +7,95 @@ import bcrypt from "bcryptjs";
 
 dotenv.config();
 const { Pool } = pkg;
-
 const app = express();
+
+// ✅ CORS configurado para aceitar o front-end
 app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  origin: "*", // pode restringir depois para seu domínio
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
 }));
+
 app.use(express.json());
 
-// Leitura das variáveis de ambiente (defina no .env local ou no painel do Render)
-const DB_HOST = process.env.DB_HOST;
-const DB_PORT = process.env.DB_PORT || 6543;
-const DB_NAME = process.env.DB_NAME || "postgres";
-const DB_USER = process.env.DB_USER;
-const DB_PASS = process.env.DB_PASS;
-
-if (!DB_HOST || !DB_USER || !DB_PASS) {
-  console.warn("⚠️ Variáveis de BD faltando. Configure DB_HOST, DB_USER e DB_PASS.");
-}
-
-// Conexão com Postgres (Supabase pooler)
+// 🔗 Conexão com o Supabase
 const pool = new Pool({
-  host:DB_HOST,
-  port:Number(DB_PORT),
-  database:DB_NAME,
-  user:DB_USER,
-  password:DB_PASS,
-  ssl:{ rejectUnauthorized: false },
-  // max, idleTimeoutMillis etc podem ser adicionados se necessário
+  host: process.env.DB_HOST || "aws-1-sa-east-1.pooler.supabase.com",
+  port: process.env.DB_PORT || 6543,
+  database: process.env.DB_NAME || "postgres",
+  user: process.env.DB_USER || "postgres.uidxcmctxdtcaaecdyrg",
+  password: process.env.DB_PASS || "SENHA_AQUI",
+  ssl: { rejectUnauthorized: false },
 });
 
-// Utility: cria tabela se não existir
+// 🌐 Rota inicial (teste de status)
+app.get("/", (req, res) => {
+  res.send("🚀 API da EmilyLoja está online e conectada ao Supabase!");
+});
+
+// ✅ Cria tabela de usuários se não existir
 const criarTabelaUsuarios = async () => {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.usuarios (
+      CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
         nome TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
-        senha TEXT NOT NULL,
-        criado_em TIMESTAMP DEFAULT NOW()
+        senha TEXT NOT NULL
       );
     `);
-    console.log("✅ Tabela 'usuarios' verificada/criada.");
-  } catch (err) {
-    console.error("❌ Erro ao criar tabela usuarios:", err.message || err);
+    console.log("✅ Tabela 'usuarios' verificada/criada com sucesso!");
+  } catch (error) {
+    console.error("❌ Erro ao criar tabela:", error.message);
   }
 };
+criarTabelaUsuarios();
 
-// tenta criar tabela ao iniciar (não bloqueante)
-criarTabelaUsuarios().catch((e) => console.error(e));
-
-// ROTA RAIZ (JSON) — evita JSON.parse errors no front
-app.get("/", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
-    return res.json({
-      status: "ok",
-      mensagem: "🚀 API da EmilyLoja está online",
-      agora: result.rows[0]
-    });
-  } catch (err) {
-    return res.status(500).json({ erro: "Erro ao conectar ao BD", detalhes: err.message });
-  }
-});
-
-// ROTA DE TESTE (SELECT simples)
-app.get("/testar-select", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
-    res.json({ mensagem: "Conexão bem-sucedida!", data: result.rows[0] });
-  } catch (error) {
-    console.error("Erro testar-select:", error);
-    res.status(500).json({ erro: error.message || "Erro no servidor" });
-  }
-});
-
-// ROTA: cadastro (POST)
+// 🧠 Rota: Cadastro
 app.post("/api/cadastrar", async (req, res) => {
+  console.log("Requisição para /api/cadastrar recebida"); // Adicionando o log
+
+  const { nome, email, senha } = req.body;
+
+  if (!nome || !email || !senha)
+    return res.status(400).json({ erro: "Preencha todos os campos!" });
+
   try {
-    const { nome, email, senha } = req.body;
-    if (!nome || !email || !senha) return res.status(400).json({ erro: "Preencha todos os campos" });
-
-    // verifica duplicado
-    const { rows: existentes } = await pool.query("SELECT id FROM usuarios WHERE email = $1", [email.toLowerCase()]);
-    if (existentes.length > 0) return res.status(400).json({ erro: "E-mail já cadastrado" });
-
     const senhaHash = await bcrypt.hash(senha, 10);
-    const { rows } = await pool.query(
-      "INSERT INTO usuarios (nome, email, senha) VALUES ($1, $2, $3) RETURNING id, nome, email, criado_em",
-      [nome, email.toLowerCase(), senhaHash]
+    const result = await pool.query(
+      "INSERT INTO usuarios (nome, email, senha) VALUES ($1, $2, $3) RETURNING id, nome, email",
+      [nome, email, senhaHash]
     );
-    return res.status(201).json(rows[0]);
-  } catch (err) {
-    console.error("Erro /api/cadastrar:", err);
-    // tratamento para erro de unique constraint
-    if (err.code === "23505") return res.status(400).json({ erro: "E-mail já cadastrado" });
-    return res.status(500).json({ erro: "Erro interno" });
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    if (error.message.includes("duplicate key"))
+      return res.status(400).json({ erro: "E-mail já cadastrado." });
+    res.status(500).json({ erro: error.message });
   }
 });
 
-// ROTA: login (POST)
+// 🔐 Rota: Login
 app.post("/api/login", async (req, res) => {
+  const { email, senha } = req.body;
+
+  if (!email || !senha)
+    return res.status(400).json({ erro: "Preencha e-mail e senha!" });
+
   try {
-    const { email, senha } = req.body;
-    if (!email || !senha) return res.status(400).json({ erro: "Preencha e-mail e senha" });
+    const result = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
+    const usuario = result.rows[0];
 
-    const { rows } = await pool.query("SELECT id, nome, email, senha FROM usuarios WHERE email = $1", [email.toLowerCase()]);
-    const usuario = rows[0];
-    if (!usuario) return res.status(401).json({ erro: "Usuário não encontrado" });
+    if (!usuario) return res.status(401).json({ erro: "Usuário não encontrado." });
 
-    const ok = await bcrypt.compare(senha, usuario.senha);
-    if (!ok) return res.status(401).json({ erro: "Senha incorreta" });
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaCorreta) return res.status(401).json({ erro: "Senha incorreta." });
 
-    // não retorna senha
-    return res.json({ id: usuario.id, nome: usuario.nome, email: usuario.email });
-  } catch (err) {
-    console.error("Erro /api/login:", err);
-    return res.status(500).json({ erro: "Erro interno" });
+    res.json({ id: usuario.id, nome: usuario.nome, email: usuario.email });
+  } catch (error) {
+    res.status(500).json({ erro: error.message });
   }
 });
 
-// Start
+// 🚀 Inicialização
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-});
+app.listen(PORT, () => console.log(🚀 Servidor rodando na porta ${PORT}));
