@@ -29,12 +29,12 @@ if (!DB_HOST || !DB_USER || !DB_PASS) {
 
 // Conexão com Postgres (Supabase pooler)
 const pool = new Pool({
-  host: DB_HOST,
-  port: Number(DB_PORT),
-  database: DB_NAME,
-  user: DB_USER,
-  password: DB_PASS,
-  ssl: { rejectUnauthorized: false },
+  host:DB_HOST,
+  port:Number(DB_PORT),
+  database:DB_NAME,
+  user:DB_USER,
+  password:DB_PASS,
+  ssl:{ rejectUnauthorized: false },
   // max, idleTimeoutMillis etc podem ser adicionados se necessário
 });
 
